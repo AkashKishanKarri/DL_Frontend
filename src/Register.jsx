@@ -54,6 +54,11 @@ function Register() {
                         <option value="photography">photography</option>
                         <option value="CP">CP</option>
                         <option value="content">content</option>
+                        <option value="DataVerse">DataVerse</option>
+                        <option value="WebArc">WebArc</option>
+                        <option value="CP">CP</option>
+                        <option value="Content">Content</option>
+                        <option value="Photography">Photography</option>
                     </select>
 
                     <label className="checkbox-label" style={{ marginBottom: "5px" }}><b>Year of Study</b></label>
