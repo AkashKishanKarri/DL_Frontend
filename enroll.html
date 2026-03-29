@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Enroll Member</title>
+</head>
+<body>
+
+<h2>Camera Enrollment</h2>
+<input type="text" id="name" placeholder="Enter Name">
+<br><br>
+
+<video id="video" width="400" autoplay></video>
+<br><br>
+
+<button onclick="startCapture()">Start Enrollment</button>
+
+<script>
+const video = document.getElementById('video');
+navigator.mediaDevices.getUserMedia({ video: true })
+    .then(stream => video.srcObject = stream);
+
+async function startCapture() {
+    const name = document.getElementById('name').value;
+    let formData = new FormData();
+
+    for (let i = 0; i < 10; i++) {
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0);
+
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg'));
+        formData.append("files", blob, `image${i}.jpg`);
+    }
+
+    fetch(`http://127.0.0.1:8000/enroll/?name=${name}`, {
+        method: "POST",
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => alert(JSON.stringify(data)));
+}
+</script>
+
+</body>
+</html>
