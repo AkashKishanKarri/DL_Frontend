@@ -80,7 +80,7 @@ function Login() {
                         <button className="app-btn mt-3" onClick={handleLogin}>Login</button>
 
                         <div className="mt-4" style={{ color: "#6c757d" }}>
-                            New member? 
+                            New member?
                             <button className="app-btn-secondary" onClick={() => setIsRegister(true)}>Register here</button>
                         </div>
                     </>
@@ -98,13 +98,18 @@ function Login() {
                                 onChange={(e) => setEmail(e.target.value)} />
 
                             <label className="checkbox-label" style={{ marginBottom: "5px" }}><b>Domain</b></label>
-                            <input type="text" className="app-input" placeholder="Enter Domain"
-                                onChange={(e) => setDomain(e.target.value)} />
+                            <select className="app-select" value={domain} onChange={(e) => setDomain(e.target.value)}>
+                                <option value="DataVerse">DataVerse</option>
+                                <option value="WebArcs">WebArcs</option>
+                                <option value="CP">CP</option>
+                                <option value="Content">Content</option>
+                                <option value="Photography">Photography</option>
+                            </select>
 
                             <label className="checkbox-label" style={{ marginBottom: "5px" }}><b>Role</b></label>
                             <select className="app-select" onChange={(e) => setRole(e.target.value)}>
                                 <option value="member">Member</option>
-                                <option value="admin">Admin</option>
+                                <option value="admin">Lead</option>
                             </select>
 
                             <label className="checkbox-label" style={{ marginBottom: "5px" }}><b>Password</b></label>
@@ -115,7 +120,7 @@ function Login() {
                         <button className="app-btn mt-3" onClick={handleRegister}>Register</button>
 
                         <div className="mt-4" style={{ color: "#6c757d" }}>
-                            Already have an account? 
+                            Already have an account?
                             <button className="app-btn-secondary" onClick={() => setIsRegister(false)}>Login</button>
                         </div>
                     </>

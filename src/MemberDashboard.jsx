@@ -46,16 +46,16 @@ function MemberDashboard() {
                     <div key={index} style={{ marginBottom: "20px", padding: "10px", border: "1px solid #ccc", borderRadius: "8px" }}>
                         <b>Event:</b> {record.event_name} <br />
                         <b>Date:</b> {record.event_date} <br />
-                        <span style={{color: "green", fontWeight: "bold"}}>Status: Present</span>
+                        <span style={{ color: "green", fontWeight: "bold" }}>Status: Present</span>
                     </div>
-            ))}
+                ))}
 
             {email && attendance.filter(record => {
                 if (!record.present) return false;
                 return record.present.some(e => e.toLowerCase() === email.toLowerCase());
             }).length === 0 && (
-                <p>No attendance records found for {email}.</p>
-            )}
+                    <p>No attendance records found for {email}.</p>
+                )}
 
         </div>
     );

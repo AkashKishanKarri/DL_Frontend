@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://127.0.0.1:8000";
 
@@ -7,15 +7,23 @@ function AdminDashboard() {
     const [file, setFile] = useState(null);
     const [recognized, setRecognized] = useState([]);
     const [members, setMembers] = useState([]);
-    
+
     // Create new attendance state
     const [selected, setSelected] = useState([]);
     const [eventName, setEventName] = useState("");
     const [domainFilter, setDomainFilter] = useState("All");
-    
+
     // History state
     const [attendanceList, setAttendanceList] = useState([]);
-    
+
+    // Live Camera state
+    const [isCameraActive, setIsCameraActive] = useState(false);
+    const [scanLog, setScanLog] = useState("");
+    const videoRef = useRef(null);
+    const canvasRef = useRef(null);
+    const streamRef = useRef(null);
+    const scanIntervalRef = useRef(null);
+
     // Edit Modal state
     const [editingRecord, setEditingRecord] = useState(null);
     const [editSelected, setEditSelected] = useState([]);
@@ -49,7 +57,7 @@ function AdminDashboard() {
             })
             .catch(err => console.error("Failed to fetch members:", err));
 
-        fetch(`${BACKEND_URL}/attendance/`)
+        fetch(`${BACKEND_URL}/attendance/`) /*Read Data*/
             .then(res => res.json())
             .then(data => {
                 if (Array.isArray(data)) setAttendanceList(data);
@@ -59,7 +67,91 @@ function AdminDashboard() {
 
     useEffect(() => {
         fetchData();
+        return () => {
+            if (streamRef.current) {
+                streamRef.current.getTracks().forEach(track => track.stop());
+            }
+            if (scanIntervalRef.current) {
+                clearInterval(scanIntervalRef.current);
+            }
+        };
     }, []);
+
+    const startCamera = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            streamRef.current = stream;
+            if (videoRef.current) {
+                videoRef.current.srcObject = stream;
+            }
+            setIsCameraActive(true);
+
+            // Start scanning loop (every 2.5 seconds)
+            scanIntervalRef.current = setInterval(captureAndScan, 2500);
+            setScanLog("Camera started. Waiting for faces...");
+
+        } catch (err) {
+            console.error("Error accessing camera:", err);
+            alert("Camera access denied or unavailable.");
+        }
+    };
+
+    const stopCamera = () => {
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop());
+            streamRef.current = null;
+        }
+        if (scanIntervalRef.current) {
+            clearInterval(scanIntervalRef.current);
+            scanIntervalRef.current = null;
+        }
+        setIsCameraActive(false);
+        setScanLog("Camera stopped.");
+    };
+
+    const captureAndScan = async () => {
+        if (!videoRef.current || !canvasRef.current) return;
+
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+        const context = canvas.getContext("2d");
+
+        // Only capture if video is properly playing and has dimensions
+        if (video.videoWidth === 0 || video.videoHeight === 0) return;
+
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        canvas.toBlob(async (blob) => {
+            if (!blob) return;
+
+            const formData = new FormData();
+            formData.append("file", blob, "live_capture.jpg");
+
+            try {
+                const res = await fetch(`${BACKEND_URL}/recognize/`, { /*Create Data*/
+                    method: "POST",
+                    body: formData
+                });
+                const data = await res.json();
+                const recognizedNames = data.present || data.recognized_members || [];
+
+                if (recognizedNames.length > 0) {
+                    setScanLog(`Recognized: ${recognizedNames.join(", ")}`);
+
+                    setSelected(prevSelected => {
+                        const newSelected = [...new Set([...prevSelected, ...recognizedNames])];
+                        return newSelected;
+                    });
+                } else {
+                    setScanLog("Scanning... No known faces detected.");
+                }
+            } catch (err) {
+                console.error("Live scan error:", err);
+            }
+        }, "image/jpeg", 0.8);
+    };
 
     const handleUpload = async () => {
         if (!file) {
@@ -77,9 +169,9 @@ function AdminDashboard() {
             });
             const data = await res.json();
             const recognizedNames = data.present || data.recognized_members || [];
-            
+
             setRecognized(recognizedNames);
-            
+
             // Merge with already selected members
             const newSelected = [...new Set([...selected, ...recognizedNames])];
             setSelected(newSelected);
@@ -127,11 +219,11 @@ function AdminDashboard() {
             setSelected([]);
             setRecognized([]);
             setFile(null);
-            
+
             // clear file input
             const fileInput = document.getElementById('camera-upload');
             if (fileInput) fileInput.value = "";
-            
+
             fetchData();
         } catch (err) {
             console.error(err);
@@ -174,7 +266,7 @@ function AdminDashboard() {
         }
 
         try {
-            await fetch(`${BACKEND_URL}/attendance/update/${editingRecord.id}`, {
+            await fetch(`${BACKEND_URL}/attendance/update/${editingRecord.id}`, { /*Update data */
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -198,7 +290,7 @@ function AdminDashboard() {
 
             <div className="app-card">
                 <h3 className="app-card-title">Mark New Attendance</h3>
-                
+
                 <div className="flex-row">
                     <div style={{ flex: 1 }}>
                         <label className="checkbox-label" style={{ marginBottom: "5px" }}><b>Event Name</b></label>
@@ -214,13 +306,13 @@ function AdminDashboard() {
 
                 <div className="flex-row" style={{ alignItems: "flex-end", marginBottom: "20px", background: "#f8f9fa", padding: "15px", borderRadius: "4px", border: "1px solid #dee2e6" }}>
                     <div style={{ flex: 2 }}>
-                        <label className="checkbox-label" style={{ marginBottom: "5px" }}><b>Face Recognition (Optional)</b></label>
-                        <input 
+                        <label className="checkbox-label" style={{ marginBottom: "5px" }}><b>Face Recognition (File Upload)</b></label>
+                        <input
                             id="camera-upload"
-                            type="file" 
-                            className="app-input" 
-                            style={{ marginBottom: 0 }} 
-                            onChange={(e) => setFile(e.target.files[0])} 
+                            type="file"
+                            className="app-input"
+                            style={{ marginBottom: 0 }}
+                            onChange={(e) => setFile(e.target.files[0])}
                         />
                     </div>
                     <div>
@@ -230,13 +322,37 @@ function AdminDashboard() {
                     </div>
                 </div>
 
+                <div className="flex-row" style={{ marginBottom: "20px", background: "#e3f2fd", padding: "15px", borderRadius: "4px", border: "1px solid #b6d4fe" }}>
+                    <div style={{ flex: 1 }}>
+                        <label className="checkbox-label" style={{ marginBottom: "5px", color: "#084298" }}><b>Live Camera Auto-Scanner</b></label>
+                        <p style={{ fontSize: "14px", color: "#052c65", margin: "5px 0 10px 0" }}>Keep the camera open and members will be auto-ticked as they walk by.</p>
+
+                        <div style={{ display: "flex", gap: "10px", alignItems: "center", marginBottom: "10px" }}>
+                            {!isCameraActive ? (
+                                <button className="app-btn app-btn-success" onClick={startCamera}>Start Live Camera</button>
+                            ) : (
+                                <button className="app-btn app-btn-danger" onClick={stopCamera}>Stop Camera</button>
+                            )}
+                            <span style={{ fontSize: "14px", fontWeight: "bold", color: isCameraActive ? "#198754" : "#6c757d" }}>
+                                {scanLog || (isCameraActive ? "Camera is active..." : "Camera is off")}
+                            </span>
+                        </div>
+
+                        <div style={{ width: "100%", maxWidth: "400px", display: isCameraActive ? "block" : "none" }}>
+                            <video ref={videoRef} autoPlay playsInline muted
+                                style={{ width: "100%", transform: "scaleX(-1)", borderRadius: "8px", border: "2px solid #0d6efd" }}></video>
+                            <canvas ref={canvasRef} style={{ display: "none" }}></canvas>
+                        </div>
+                    </div>
+                </div>
+
                 <div className="flex-row">
                     <div style={{ flex: 1 }}>
                         <label className="checkbox-label" style={{ marginBottom: "5px" }}><b>Filter by Domain</b></label>
                         <select className="app-select" value={domainFilter} onChange={(e) => setDomainFilter(e.target.value)}>
                             <option value="All">All Domains</option>
                             <option value="DataVerse">DataVerse</option>
-                            <option value="WebArc">WebArc</option>
+                            <option value="WebArcs">WebArcs</option>
                             <option value="CP">CP</option>
                             <option value="Content">Content</option>
                             <option value="Photography">Photography</option>
@@ -246,7 +362,7 @@ function AdminDashboard() {
 
                 <div style={{ marginBottom: "15px" }}>
                     <label className="checkbox-label">
-                        <input type="checkbox" onChange={toggleCTM} /> 
+                        <input type="checkbox" onChange={toggleCTM} />
                         <b>Select All (in current filter)</b>
                     </label>
                 </div>
@@ -306,6 +422,7 @@ function AdminDashboard() {
                                             <button className="app-btn app-btn-sm app-btn-inline" onClick={() => openEditModal(record)}>
                                                 Edit
                                             </button>
+                                            {/* Delete Attendance */}
                                             <button className="app-btn app-btn-danger app-btn-sm app-btn-inline" onClick={() => deleteAttendance(record.id)}>
                                                 Delete
                                             </button>
@@ -328,7 +445,7 @@ function AdminDashboard() {
                             <h3 className="modal-title">Edit Attendance</h3>
                             <button className="close-btn" onClick={closeEditModal}>&times;</button>
                         </div>
-                        
+
                         <div style={{ marginBottom: "15px" }}>
                             <label className="checkbox-label" style={{ marginBottom: "5px" }}><b>Event Name</b></label>
                             <input
@@ -355,7 +472,7 @@ function AdminDashboard() {
 
                         <div style={{ marginBottom: "10px" }}>
                             <label className="checkbox-label">
-                                <input type="checkbox" onChange={toggleEditCTM} /> 
+                                <input type="checkbox" onChange={toggleEditCTM} />
                                 <b>Select All (in current filter)</b>
                             </label>
                         </div>

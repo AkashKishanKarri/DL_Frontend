@@ -49,11 +49,6 @@ function Register() {
 
                     <label className="checkbox-label" style={{ marginBottom: "5px" }}><b>Domain</b></label>
                     <select className="app-select" value={domain} onChange={(e) => setDomain(e.target.value)}>
-                        <option value="WebArcs">WebArcs</option>
-                        <option value="DataVerse">DataVerse</option>
-                        <option value="photography">photography</option>
-                        <option value="CP">CP</option>
-                        <option value="content">content</option>
                         <option value="DataVerse">DataVerse</option>
                         <option value="WebArc">WebArc</option>
                         <option value="CP">CP</option>
